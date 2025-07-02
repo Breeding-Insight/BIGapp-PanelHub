@@ -1,0 +1,6 @@
+# 2025.7.2
+# Panel design were conducted in two phases
+# 1. 2K markers at 54 bp in amplicon length
+# 2. 3K markers at 81 bp in amplicon length
+
+# Ref and Alt allele sequences are provided at 109 bp to account for DArT providing longer sequencing reads
