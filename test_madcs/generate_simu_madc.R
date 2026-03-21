@@ -415,11 +415,6 @@ cat("Percentage of zeros:", round(sum(zero_counts) / (nrow(simulated_data) * len
 
 
 # Creating examples for the other scenarios
-## With non-standard CloneID
-mk_info <- read.csv("~/Documents/github/BIGapp-PanelHub/alfalfa/20201030-BI-Alfalfa_SNPs_DArTag-probe-design_snpID_lut.csv")
-simulated_data$CloneID <- mk_info$Panel_markerID[match(simulated_data$CloneID, mk_info$BI_markerID)]
-write.csv(simulated_data, "alfalfa_ChromPosFALSE.csv", row.names = FALSE)
-
 ## Lower case
 
 # Add random lowercase
