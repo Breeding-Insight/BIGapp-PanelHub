@@ -418,11 +418,11 @@ cat("Percentage of zeros:", round(sum(zero_counts) / (nrow(simulated_data) * len
 ## Lower case
 
 # Add random lowercase
-simulated_data <- add_random_lowercase(simulated_data, lowercase_prob = 0.15)
-write.csv(simulated_data, "alfalfa_lowercase.csv", row.names = FALSE)
+simulated_datal <- add_random_lowercase(simulated_data, lowercase_prob = 0.15)
+write.csv(simulated_datal, "alfalfa_lowercase.csv", row.names = FALSE)
 
 # Check the result
-head(simulated_data$AlleleSequence)
+head(simulated_datal$AlleleSequence)
 
 ## IUPAC codes
 
@@ -440,6 +440,7 @@ snp_file_path = "~/Documents/github/BIGapp-PanelHub/potato/potato_dartag_v2_3915
 
 specific_clones <- c("chr05_004488021", "chr05_004488015")  # Your specific CloneIDs
 
+set.seed(1213)
 simulated_data <- generate_allele_data(
   fasta_file = fasta_file_path,
   snp_file = snp_file_path,
@@ -463,6 +464,7 @@ specific_clones <- c("chr05_004488021", "chr05_004488015",
                      "M6_chr10_48867893_000000225",
                      "C88_C10H2G055580_399_000000151")  # Your specific CloneIDs
 
+set.seed(1231)
 simulated_data <- generate_allele_data(
   fasta_file = fasta_file_path,
   snp_file = snp_file_path,
@@ -492,3 +494,4 @@ simulated_data <- add_random_iupac(simulated_data, iupac_prob = 0.05)
 # Check the result
 head(simulated_data$AlleleSequence)
 write.csv(simulated_data, "potato_indel_IUPAC.csv", row.names = FALSE)
+
