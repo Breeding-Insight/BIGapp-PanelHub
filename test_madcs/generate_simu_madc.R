@@ -389,6 +389,14 @@ simulated_data <- generate_allele_data(
 output_file <- "alfalfa_madc.csv"
 write.csv(simulated_data, output_file, row.names = FALSE)
 
+# WRong ID
+
+simulated_data1 <- simulated_data
+simulated_data1$CloneID <- gsub("[.]1", "",simulated_data$CloneID)
+
+output_file <- "alfalfa_madc_wrongID.csv"
+write.csv(simulated_data1, output_file, row.names = FALSE)
+
 cat("Simulation complete!\n")
 cat("Generated file:", output_file, "\n")
 cat("Total rows:", nrow(simulated_data), "\n")
