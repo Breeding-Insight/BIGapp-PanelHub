@@ -127,84 +127,78 @@ generate_allele_data <- function(fasta_file, snp_file, n_clones = 1000, n_sample
     # Use BI_markerID as CloneID (or Panel_markerID if you prefer)
     clone_id <- bi_id
 
-    # Find corresponding sequence in FASTA
-    # Try to match by various possible naming conventions
-    possible_names <- c(
-      panel_id,
-      bi_id,
-      paste0(chr, "_", pos),
-      paste0("chr", chr, "_", pos),
-      paste0(chr, ":", pos)
-    )
+    # Find Ref and Alt sequences directly from FASTA (use as-is, no modification)
+    ref_keys <- c(paste0(bi_id, "|Ref_0001"), paste0(panel_id, "|Ref_0001"))
+    alt_keys <- c(paste0(bi_id, "|Alt_0002"), paste0(panel_id, "|Alt_0002"))
 
-    seq_found <- FALSE
-    base_sequence <- NULL
+    ref_sequence <- NULL
+    alt_sequence <- NULL
 
-    for (name in possible_names) {
-      if (name %in% seq_names) {
-        base_sequence <- seq_chars[[name]]
-        seq_found <- TRUE
-        break
-      }
+    # Exact match for Ref
+    for (key in ref_keys) {
+      if (key %in% seq_names) { ref_sequence <- seq_chars[[key]]; break }
+      matches <- grep(key, seq_names, value = TRUE, fixed = TRUE)
+      if (length(matches) > 0) { ref_sequence <- seq_chars[[matches[1]]]; break }
     }
 
-    # If no exact match found, try partial matching
-    if (!seq_found) {
+    # Exact match for Alt
+    for (key in alt_keys) {
+      if (key %in% seq_names) { alt_sequence <- seq_chars[[key]]; break }
+      matches <- grep(key, seq_names, value = TRUE, fixed = TRUE)
+      if (length(matches) > 0) { alt_sequence <- seq_chars[[matches[1]]]; break }
+    }
+
+    # Fallback: if Ref/Alt not found separately, derive from a base sequence
+    if (is.null(ref_sequence) || is.null(alt_sequence)) {
+      possible_names <- c(panel_id, bi_id,
+                          paste0(chr, "_", pos),
+                          paste0("chr", chr, "_", pos),
+                          paste0(chr, ":", pos))
+      base_sequence <- NULL
+      seq_found <- FALSE
       for (name in possible_names) {
-        matches <- grep(name, seq_names, value = TRUE)
-        if (length(matches) > 0) {
-          base_sequence <- seq_chars[[matches[1]]]
-          seq_found <- TRUE
-          break
+        if (name %in% seq_names) { base_sequence <- seq_chars[[name]]; seq_found <- TRUE; break }
+      }
+      if (!seq_found) {
+        for (name in possible_names) {
+          matches <- grep(name, seq_names, value = TRUE)
+          if (length(matches) > 0) { base_sequence <- seq_chars[[matches[1]]]; seq_found <- TRUE; break }
         }
       }
-    }
-
-    # If still no match, use a random sequence or skip
-    if (!seq_found) {
-      if (length(seq_chars) > 0) {
-        base_sequence <- seq_chars[[((i-1) %% length(seq_chars)) + 1]]
-      } else {
-        # Generate random sequence if no FASTA available
-        seq_length <- sample(70:80, 1)
-        base_sequence <- paste(sample(c("A", "T", "G", "C"), seq_length, replace = TRUE),
-                               collapse = "")
+      if (!seq_found) {
+        if (length(seq_chars) > 0) {
+          base_sequence <- seq_chars[[((i-1) %% length(seq_chars)) + 1]]
+        } else {
+          seq_length <- sample(70:80, 1)
+          base_sequence <- paste(sample(c("A", "T", "G", "C"), seq_length, replace = TRUE), collapse = "")
+        }
       }
-    }
-
-    # Adjust sequence length if needed (keep reasonable size for testing)
-    if (nchar(base_sequence) > 80) {
-      # Try to center around the SNP position if possible
-      if (pos <= nchar(base_sequence)) {
-        start_pos <- max(1, pos - 40)
-        end_pos <- min(nchar(base_sequence), start_pos + 79)
-        start_pos <- max(1, end_pos - 79)
-        base_sequence <- substr(base_sequence, start_pos, end_pos)
-        # Adjust position relative to new sequence
-        pos <- pos - start_pos + 1
-      } else {
-        # If position is beyond sequence, take from start
-        base_sequence <- substr(base_sequence, 1, 80)
-        pos <- sample(20:60, 1)  # Random position for mutation
+      # Trim and adjust local position for fallback sequences
+      if (nchar(base_sequence) > 80) {
+        if (pos <= nchar(base_sequence)) {
+          start_pos <- max(1, pos - 40)
+          end_pos   <- min(nchar(base_sequence), start_pos + 79)
+          start_pos <- max(1, end_pos - 79)
+          base_sequence <- substr(base_sequence, start_pos, end_pos)
+          pos <- pos - start_pos + 1
+        } else {
+          base_sequence <- substr(base_sequence, 1, 80)
+          pos <- sample(20:60, 1)
+        }
       }
-    }
-
-    # Ensure position is within sequence bounds
-    if (pos > nchar(base_sequence) || pos < 1) {
-      pos <- sample(1:nchar(base_sequence), 1)
-    }
-
-    # Create reference sequence (ensure it has the REF base at the position)
-    ref_sequence <- base_sequence
-    if (pos <= nchar(ref_sequence)) {
+      if (pos > nchar(base_sequence) || pos < 1) pos <- sample(1:nchar(base_sequence), 1)
+      ref_sequence <- base_sequence
       substr(ref_sequence, pos, pos) <- ref_base
-    }
-
-    # Create alt sequence (with ALT base at the position)
-    alt_sequence <- ref_sequence
-    if (pos <= nchar(alt_sequence)) {
+      alt_sequence <- ref_sequence
       substr(alt_sequence, pos, pos) <- alt_base
     }
+
+    # Determine local SNP position (used only to guide RefMatch/AltMatch SNP placement)
+    # Compare Ref and Alt to find the differing position
+    ref_chars_cmp <- strsplit(toupper(ref_sequence), "")[[1]]
+    alt_chars_cmp <- strsplit(toupper(alt_sequence), "")[[1]]
+    diff_pos <- which(ref_chars_cmp != alt_chars_cmp)
+    local_snp_pos <- if (length(diff_pos) > 0) diff_pos[1] else ceiling(nchar(ref_sequence) / 2)
 
     # Generate realistic observation counts for samples (with many zeros)
     ref_counts <- generate_realistic_counts(n_samples, "main")
@@ -241,8 +235,8 @@ generate_allele_data <- function(fasta_file, snp_file, n_clones = 1000, n_sample
     n_ref_matches <- sample(0:3, 1)
     if (n_ref_matches > 0) {
       for (k in 1:n_ref_matches) {
-        # RefMatch: same base as Ref at SNP position, different at another position
-        available_positions <- setdiff(1:nchar(ref_sequence), pos)
+        # RefMatch: introduce a random SNP at a non-SNP position (Ref AlleleSequence unchanged)
+        available_positions <- setdiff(1:nchar(ref_sequence), local_snp_pos)
         if (length(available_positions) > 0) {
           ref_match_pos <- sample(available_positions, 1)
           ref_match_base <- substr(ref_sequence, ref_match_pos, ref_match_pos)
@@ -277,8 +271,8 @@ generate_allele_data <- function(fasta_file, snp_file, n_clones = 1000, n_sample
     n_alt_matches <- sample(0:3, 1)
     if (n_alt_matches > 0) {
       for (k in 1:n_alt_matches) {
-        # AltMatch: same base as Alt at SNP position, different at another position
-        available_positions <- setdiff(1:nchar(alt_sequence), pos)
+        # AltMatch: introduce a random SNP at a non-SNP position (Alt AlleleSequence unchanged)
+        available_positions <- setdiff(1:nchar(alt_sequence), local_snp_pos)
         if (length(available_positions) > 0) {
           alt_match_pos <- sample(available_positions, 1)
           alt_match_base <- substr(alt_sequence, alt_match_pos, alt_match_pos)
@@ -488,8 +482,8 @@ write.csv(simulated_data, output_file, row.names = FALSE)
 ## Lower case
 
 # Add random lowercase
-simulated_data <- add_random_lowercase(simulated_data, lowercase_prob = 0.15)
-write.csv(simulated_data, "potato_indel_lowercase.csv", row.names = FALSE)
+simulated_data1 <- add_random_lowercase(simulated_data, lowercase_prob = 0.15)
+write.csv(simulated_data1, "potato_indel_lowercase.csv", row.names = FALSE)
 
 # Check the result
 head(simulated_data$AlleleSequence)
